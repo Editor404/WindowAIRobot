@@ -1,0 +1,14 @@
+# Default example calibration. Replace image_corners_px with clicked/detected window corners.
+# Leave width/height null for normalized mode; set both values for metric cm mode.
+mode: auto
+window_width_cm: null
+window_height_cm: null
+image_corners_px:
+  top_left: [0.0, 0.0]
+  top_right: [1.0, 0.0]
+  bottom_right: [1.0, 1.0]
+  bottom_left: [0.0, 1.0]
+homography:
+  - [1.0, 0.0, 0.0]
+  - [0.0, -1.0, 1.0]
+  - [0.0, 0.0, 1.0]
