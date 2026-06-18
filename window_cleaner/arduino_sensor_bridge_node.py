@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import math
+from pathlib import Path
+import glob
 
 import rclpy
 from geometry_msgs.msg import Pose2D
@@ -16,7 +18,7 @@ class ArduinoSensorBridgeNode(Node):
     def __init__(self) -> None:
         super().__init__("arduino_sensor_bridge")
 
-        self.declare_parameter("port", "/dev/ttyACM0")
+        self.declare_parameter("port", "auto")
         self.declare_parameter("baud", 115200)
         self.declare_parameter("frame_id", "camera_imu_link")
         self.declare_parameter("camera_map_x_cm", 15.0)
@@ -36,7 +38,7 @@ class ArduinoSensorBridgeNode(Node):
         except ImportError as exc:
             raise RuntimeError("pyserial is required: install python3-serial or pyserial") from exc
 
-        port = str(self.get_parameter("port").value)
+        port = self.resolve_serial_port(str(self.get_parameter("port").value))
         baud = int(self.get_parameter("baud").value)
         self.frame_id = str(self.get_parameter("frame_id").value)
         self.camera_x_cm = float(self.get_parameter("camera_map_x_cm").value)
@@ -76,6 +78,27 @@ class ArduinoSensorBridgeNode(Node):
                 "Forwarding /arduino/motor_command to Arduino serial; "
                 "calibrate drive_cm_per_second and turn_rad_per_second before free driving."
             )
+
+    def resolve_serial_port(self, configured_port: str) -> str:
+        if configured_port and configured_port.lower() not in {"auto", ""}:
+            return configured_port
+
+        candidates: list[str] = []
+        candidates.extend(sorted(glob.glob("/dev/serial/by-id/*")))
+        candidates.extend(sorted(glob.glob("/dev/ttyACM*")))
+        candidates.extend(sorted(glob.glob("/dev/ttyUSB*")))
+
+        for candidate in candidates:
+            path = Path(candidate)
+            if path.exists():
+                resolved = str(path.resolve()) if candidate.startswith("/dev/serial/by-id/") else candidate
+                self.get_logger().info(f"Auto-selected Arduino serial port: {candidate} -> {resolved}")
+                return candidate
+
+        raise RuntimeError(
+            "No Arduino serial port found. Checked /dev/serial/by-id/*, /dev/ttyACM*, /dev/ttyUSB*. "
+            "Reconnect Arduino USB, avoid charge-only cables, then run: ls -l /dev/ttyACM* /dev/ttyUSB* /dev/serial/by-id/*"
+        )
 
     def on_motor_command(self, msg: Pose2D) -> None:
         calibration = MotionCalibration(
@@ -144,7 +167,7 @@ class ArduinoSensorBridgeNode(Node):
             return
         if self.get_clock().now().nanoseconds < self.stop_deadline_ns:
             return
-        self.write_arduino_line("x")
+        self.write_arduino_line("CMD,S")
         self.stop_deadline_ns = None
         self.get_logger().info("Arduino motion: timed stop sent")
 

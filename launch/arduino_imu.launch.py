@@ -7,7 +7,7 @@ from launch_ros.actions import Node
 def generate_launch_description():
     return LaunchDescription(
         [
-            DeclareLaunchArgument("port", default_value="/dev/ttyACM0"),
+            DeclareLaunchArgument("port", default_value="auto"),
             DeclareLaunchArgument("gyro_z_bias_dps", default_value="-1.35"),
             Node(
                 package="window_cleaner",

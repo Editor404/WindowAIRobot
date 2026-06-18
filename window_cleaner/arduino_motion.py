@@ -32,15 +32,15 @@ def pose2d_to_motion_command(
     `robot_controller_node` should run with `use_target_heading:=true`, which emits
     either turn-in-place commands (`theta != 0`) or forward/backward distance
     commands (`x != 0, y ~= 0`). This helper refuses lateral-only commands by
-    returning the Arduino stop command `x`.
+    returning the Arduino ROS-bridge stop command `CMD,S`.
     """
 
     calibration = calibration or MotionCalibration()
     if abs(y_cm) > calibration.lateral_tolerance_cm:
-        return MotionCommand("x", 0.0, "lateral_command_rejected")
+        return MotionCommand("CMD,S", 0.0, "lateral_command_rejected")
 
     if abs(theta_rad) > calibration.command_deadband and abs(x_cm) <= calibration.command_deadband:
-        command = "d" if theta_rad > 0.0 else "a"
+        command = "CMD,R" if theta_rad > 0.0 else "CMD,L"
         duration = _bounded_duration(
             abs(theta_rad) / max(calibration.turn_rad_per_second, calibration.command_deadband),
             calibration,
@@ -48,14 +48,14 @@ def pose2d_to_motion_command(
         return MotionCommand(command, duration, "turn")
 
     if abs(x_cm) > calibration.command_deadband:
-        command = "w" if x_cm > 0.0 else "s"
+        command = "CMD,F" if x_cm > 0.0 else "CMD,B"
         duration = _bounded_duration(
             abs(x_cm) / max(calibration.drive_cm_per_second, calibration.command_deadband),
             calibration,
         )
         return MotionCommand(command, duration, "drive")
 
-    return MotionCommand("x", 0.0, "stop")
+    return MotionCommand("CMD,S", 0.0, "stop")
 
 
 def _bounded_duration(duration_s: float, calibration: MotionCalibration) -> float:
