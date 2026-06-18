@@ -36,6 +36,8 @@ setup(
             "window_cleaning_planner_node = window_cleaner.window_cleaning_planner_node:main",
             "window_map_initializer_node = window_cleaner.window_map_initializer_node:main",
             "gazebo_dirt_cleaner_node = window_cleaner.gazebo_dirt_cleaner_node:main",
+            "image_snapshot = window_cleaner.image_snapshot_node:main",
+            "mjpeg_stream = window_cleaner.mjpeg_stream_node:main",
             "calibrate_window = window_cleaner.window_frame_detector:main",
         ],
     },

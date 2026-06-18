@@ -256,6 +256,36 @@ y     이동할 y 거리 cm, dy_cm
 theta 청소 플래그, 1.0이면 이동 후 청소
 ```
 
+
+### SSH 환경 영상 확인
+
+GUI 없이 라즈베리파이에 SSH로 접속한 경우 `mjpeg_stream`으로 카메라 토픽을 웹 브라우저에서 볼 수 있습니다.
+
+```bash
+# 터미널 1: 카메라 publish
+ros2 run window_cleaner rpi_camera_node --ros-args -p backend:=rpicam
+
+# 터미널 2: MJPEG 웹 스트림
+source install/setup.bash
+ros2 run window_cleaner mjpeg_stream --ros-args \
+  -p image_topic:=/camera/image_raw \
+  -p port:=8080
+```
+
+같은 네트워크의 노트북/PC 브라우저에서 아래 주소를 엽니다.
+
+```text
+http://<라즈베리파이IP>:8080
+```
+
+스냅샷만 저장하려면:
+
+```bash
+ros2 run window_cleaner image_snapshot --ros-args \
+  -p image_topic:=/camera/image_raw \
+  -p output:=/tmp/window_cleaner_snapshot.jpg
+```
+
 ## Launch 실행
 
 ```bash
