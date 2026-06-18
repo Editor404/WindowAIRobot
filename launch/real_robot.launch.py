@@ -17,6 +17,15 @@ def generate_launch_description():
                 executable="rpi_camera_node",
                 name="rpi_camera_node",
                 output="screen",
+                parameters=[
+                    {
+                        "backend": "picamera2",
+                        "image_topic": "/camera/image_raw",
+                        "width": 640,
+                        "height": 480,
+                        "fps": 30.0,
+                    }
+                ],
             ),
             Node(
                 package="window_cleaner",
