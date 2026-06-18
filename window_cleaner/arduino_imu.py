@@ -21,8 +21,17 @@ def parse_sensor_line(line: str) -> ArduinoSensorSample | None:
         return None
 
     fields = line.strip().split(",")
-    if len(fields) not in (7, 9):
-        raise ValueError(f"Expected 7 or 9 sensor fields, got {len(fields)}")
+    if len(fields) not in (7, 8, 9):
+        raise ValueError(f"Expected 7, 8, or 9 sensor fields, got {len(fields)}")
+
+    blower_pwm = None
+    adhesion_secure = None
+    if len(fields) == 8:
+        adhesion_secure = bool(int(fields[7]))
+    elif len(fields) == 9:
+        # Backward-compatible parser for older blower-control sketches.
+        blower_pwm = int(fields[7])
+        adhesion_secure = bool(int(fields[8]))
 
     return ArduinoSensorSample(
         timestamp_ms=int(fields[1]),
@@ -31,8 +40,8 @@ def parse_sensor_line(line: str) -> ArduinoSensorSample | None:
         gyro_x_dps=float(fields[4]),
         gyro_y_dps=float(fields[5]),
         gyro_z_dps=float(fields[6]),
-        blower_pwm=int(fields[7]) if len(fields) == 9 else None,
-        adhesion_secure=bool(int(fields[8])) if len(fields) == 9 else None,
+        blower_pwm=blower_pwm,
+        adhesion_secure=adhesion_secure,
     )
 
 

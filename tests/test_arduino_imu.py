@@ -15,6 +15,16 @@ def test_parse_arduino_sensor_line():
     assert sample.gyro_z_dps == 90.0
 
 
+
+
+def test_parse_sensor_line_with_adhesion_without_blower_control():
+    sample = parse_sensor_line("SENSOR,1500,512,1,1.25,-2.5,90.0,1")
+
+    assert sample is not None
+    assert sample.blower_pwm is None
+    assert sample.adhesion_secure
+
+
 def test_parse_sensor_line_with_adhesion_control_state():
     sample = parse_sensor_line("SENSOR,1500,512,1,1.25,-2.5,90.0,210,1")
 
