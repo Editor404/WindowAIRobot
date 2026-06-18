@@ -175,7 +175,7 @@ ROS2 브리지 실행:
 ```bash
 ros2 launch window_cleaner arduino_imu.launch.py \
   port:=/dev/ttyACM0 \
-  gyro_z_bias_dps:=0.0
+  gyro_z_bias_dps:=-1.35
 ```
 
 발행 토픽:
@@ -193,7 +193,7 @@ ros2 launch window_cleaner arduino_imu.launch.py \
 아직 수신되지 않았으면 기존 맵 축 기준 이동량을 사용합니다.
 
 ITG-3205 각속도는 시간 적분 시 드리프트가 발생하므로 정지 상태의 평균
-`gyro_z_dps`를 측정해 `gyro_z_bias_dps`로 설정해야 합니다.
+`gyro_z_dps`를 측정해 `gyro_z_bias_dps`로 설정해야 합니다. 현재 측정된 정지 상태 평균은 약 `-1.35 dps`입니다.
 
 ### 압력 기반 흡착 블로워 제어
 

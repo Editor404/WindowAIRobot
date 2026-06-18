@@ -22,7 +22,7 @@ class ArduinoSensorBridgeNode(Node):
         self.declare_parameter("camera_map_x_cm", 15.0)
         self.declare_parameter("camera_map_y_cm", 30.0)
         self.declare_parameter("initial_yaw_deg", 0.0)
-        self.declare_parameter("gyro_z_bias_dps", 0.0)
+        self.declare_parameter("gyro_z_bias_dps", -1.35)
         self.declare_parameter("motor_command_topic", "/arduino/motor_command")
         self.declare_parameter("enable_motor_serial_commands", True)
         self.declare_parameter("drive_cm_per_second", 5.0)
