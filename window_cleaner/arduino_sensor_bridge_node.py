@@ -9,6 +9,7 @@ from sensor_msgs.msg import Imu
 from std_msgs.msg import Bool, Int32
 
 from window_cleaner.arduino_imu import GyroYawEstimator, parse_sensor_line
+from window_cleaner.arduino_motion import MotionCalibration, pose2d_to_motion_command
 
 
 class ArduinoSensorBridgeNode(Node):
@@ -22,6 +23,13 @@ class ArduinoSensorBridgeNode(Node):
         self.declare_parameter("camera_map_y_cm", 30.0)
         self.declare_parameter("initial_yaw_deg", 0.0)
         self.declare_parameter("gyro_z_bias_dps", 0.0)
+        self.declare_parameter("motor_command_topic", "/arduino/motor_command")
+        self.declare_parameter("enable_motor_serial_commands", True)
+        self.declare_parameter("drive_cm_per_second", 5.0)
+        self.declare_parameter("turn_rad_per_second", 0.5)
+        self.declare_parameter("max_motion_seconds", 2.0)
+        self.declare_parameter("min_motion_seconds", 0.1)
+        self.declare_parameter("lateral_tolerance_cm", 0.5)
 
         try:
             import serial
@@ -42,6 +50,8 @@ class ArduinoSensorBridgeNode(Node):
         self.adhesion_publisher = self.create_publisher(Bool, "/adhesion/secure", 10)
         self.imu_publisher = self.create_publisher(Imu, "/gyro/data", 10)
         self.pose_publisher = self.create_publisher(Pose2D, "/robot/imu_pose", 10)
+        self.stop_deadline_ns: int | None = None
+        self.motor_serial_enabled = bool(self.get_parameter("enable_motor_serial_commands").value)
 
         try:
             self.serial = serial.Serial(port, baud, timeout=0)
@@ -50,12 +60,54 @@ class ArduinoSensorBridgeNode(Node):
 
         self.receive_buffer = bytearray()
         self.timer = self.create_timer(0.005, self.read_serial)
+        if self.motor_serial_enabled:
+            self.motor_subscription = self.create_subscription(
+                Pose2D,
+                str(self.get_parameter("motor_command_topic").value),
+                self.on_motor_command,
+                10,
+            )
         self.get_logger().info(
             f"Arduino IMU: {port} at {baud} baud; camera map position="
             f"({self.camera_x_cm:.1f}, {self.camera_y_cm:.1f}) cm"
         )
+        if self.motor_serial_enabled:
+            self.get_logger().info(
+                "Forwarding /arduino/motor_command to Arduino serial; "
+                "calibrate drive_cm_per_second and turn_rad_per_second before free driving."
+            )
+
+    def on_motor_command(self, msg: Pose2D) -> None:
+        calibration = MotionCalibration(
+            drive_cm_per_second=float(self.get_parameter("drive_cm_per_second").value),
+            turn_rad_per_second=float(self.get_parameter("turn_rad_per_second").value),
+            max_motion_seconds=float(self.get_parameter("max_motion_seconds").value),
+            min_motion_seconds=float(self.get_parameter("min_motion_seconds").value),
+            lateral_tolerance_cm=float(self.get_parameter("lateral_tolerance_cm").value),
+        )
+        command = pose2d_to_motion_command(msg.x, msg.y, msg.theta, calibration)
+        self.write_arduino_line(command.serial_line)
+        if command.duration_s > 0.0:
+            self.stop_deadline_ns = self.get_clock().now().nanoseconds + int(command.duration_s * 1_000_000_000)
+            self.get_logger().info(
+                f"Arduino motion: {command.reason} -> {command.serial_line!r} for {command.duration_s:.2f}s "
+                f"from Pose2D(x={msg.x:.2f}, y={msg.y:.2f}, theta={msg.theta:.2f})"
+            )
+        else:
+            self.stop_deadline_ns = None
+            if command.reason == "lateral_command_rejected":
+                self.get_logger().error(
+                    f"Rejected lateral motor command for real tracked robot: y={msg.y:.2f} cm. "
+                    "Run robot_controller_node with use_target_heading:=true."
+                )
+            else:
+                self.get_logger().info("Arduino motion: stop")
+
+    def write_arduino_line(self, line: str) -> None:
+        self.serial.write((line.strip() + "\n").encode("ascii"))
 
     def read_serial(self) -> None:
+        self.stop_expired_motion()
         waiting = self.serial.in_waiting
         if waiting <= 0:
             return
@@ -86,6 +138,15 @@ class ArduinoSensorBridgeNode(Node):
             yaw = self.yaw_estimator.update(sample.timestamp_ms, sample.gyro_z_dps)
             self.publish_imu(sample.gyro_x_dps, sample.gyro_y_dps, sample.gyro_z_dps, yaw)
             self.publish_camera_pose(yaw)
+
+    def stop_expired_motion(self) -> None:
+        if self.stop_deadline_ns is None:
+            return
+        if self.get_clock().now().nanoseconds < self.stop_deadline_ns:
+            return
+        self.write_arduino_line("x")
+        self.stop_deadline_ns = None
+        self.get_logger().info("Arduino motion: timed stop sent")
 
     def publish_imu(self, x_dps: float, y_dps: float, z_dps: float, yaw: float) -> None:
         message = Imu()

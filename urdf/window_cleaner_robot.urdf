@@ -1,0 +1,38 @@
+<?xml version="1.0"?>
+<robot name="window_cleaner_robot">
+  <!--
+    Visual mesh source: jagosipda.stl.
+    STL bounds are approximately 307 x 310 x 138 mm, so Gazebo uses scale 0.001.
+    Robot footprint is modeled as 30 x 30 cm; collision starts as a simple box for stable simulation.
+  -->
+  <link name="base_link">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="2.0"/>
+      <inertia ixx="0.025" ixy="0.0" ixz="0.0" iyy="0.025" iyz="0.0" izz="0.035"/>
+    </inertial>
+
+    <visual name="body_visual">
+      <origin xyz="-0.003512 -0.002591 -0.061886" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="package://window_cleaner/meshes/jagosipda.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="body_gray">
+        <color rgba="0.55 0.58 0.62 1.0"/>
+      </material>
+    </visual>
+
+    <collision name="body_collision">
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.30 0.30 0.14"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <gazebo reference="base_link">
+    <material>Gazebo/Grey</material>
+    <mu1>1.0</mu1>
+    <mu2>1.0</mu2>
+  </gazebo>
+</robot>

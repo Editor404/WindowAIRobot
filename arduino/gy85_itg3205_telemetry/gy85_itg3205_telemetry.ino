@@ -1,7 +1,9 @@
 #include <Wire.h>
+#include <string.h>
 
 const unsigned long SERIAL_BAUD = 115200;
 const unsigned long SENSOR_INTERVAL_MS = 50;
+const byte COMMAND_BUFFER_SIZE = 24;
 
 // sensor_test.ino 기본 배선: 변경하지 않는다.
 const int LEFT_RELAY_1_PIN = 2;
@@ -19,15 +21,16 @@ const int BLOWER_DIRECTION_PIN = 8;
 
 // 반드시 실제 센서 측정값으로 조정한다.
 // 기본값은 흡착이 강할수록 ADC 값이 증가한다고 가정한다.
-const bool PRESSURE_INCREASES_WITH_SUCTION = true;
-const int ADHESION_TARGET_RAW = 600;
-const int ADHESION_RELEASE_RAW = 540;
+const bool PRESSURE_INCREASES_WITH_SUCTION = false;
+const int ADHESION_TARGET_RAW = 885;
+const int ADHESION_RELEASE_RAW = 900;
 const int PRESSURE_SENSOR_MIN_RAW = 5;
 const int PRESSURE_SENSOR_MAX_RAW = 1018;
 const int BLOWER_MIN_PWM = 80;
 const int BLOWER_MAX_PWM = 255;
 const int BLOWER_START_PWM = 220;
 const int CONTROL_STEP = 4;
+const int CONTROL_RELAX_MARGIN_RAW = 10;
 const unsigned long STARTUP_GRACE_MS = 3000;
 const byte ITG3205_ADDRESS = 0x68;
 const byte WHO_AM_I = 0x00;
@@ -42,8 +45,11 @@ bool gyroConnected = false;
 bool adhesionSecure = false;
 int blowerPwm = BLOWER_START_PWM;
 unsigned long startupTime = 0;
-int driveSpeed = 150;
+int leftDriveSpeed = 150;
+int rightDriveSpeed = 235;
 bool driveRunning = false;
+char commandBuffer[COMMAND_BUFFER_SIZE];
+byte commandLength = 0;
 
 void writeRegister(byte registerAddress, byte value) {
   Wire.beginTransmission(ITG3205_ADDRESS);
@@ -91,6 +97,12 @@ bool pressureAtLeast(int pressureRaw, int threshold) {
     : pressureRaw <= threshold;
 }
 
+bool pressureStrongerThanTargetBy(int pressureRaw, int margin) {
+  return PRESSURE_INCREASES_WITH_SUCTION
+    ? pressureRaw >= ADHESION_TARGET_RAW + margin
+    : pressureRaw <= ADHESION_TARGET_RAW - margin;
+}
+
 void setBlowerPwm(int pwm) {
   blowerPwm = constrain(pwm, BLOWER_MIN_PWM, BLOWER_MAX_PWM);
   analogWrite(BLOWER_PWM_PIN, blowerPwm);
@@ -117,7 +129,7 @@ void updateAdhesionControl(int pressureRaw) {
 
   if (!adhesionSecure) {
     setBlowerPwm(blowerPwm + CONTROL_STEP);
-  } else if (pressureAtLeast(pressureRaw, ADHESION_TARGET_RAW + 40)) {
+  } else if (pressureStrongerThanTargetBy(pressureRaw, CONTROL_RELAX_MARGIN_RAW)) {
     setBlowerPwm(blowerPwm - 1);
   }
 }
@@ -136,6 +148,30 @@ void stopDrive() {
   analogWrite(RIGHT_DRIVE_PWM_PIN, 0);
 }
 
+void setLeftDriveSpeed(int pwm) {
+  leftDriveSpeed = constrain(pwm, 0, 255);
+}
+
+void setRightDriveSpeed(int pwm) {
+  rightDriveSpeed = constrain(pwm, 0, 255);
+}
+
+void setDriveSpeeds(int leftPwm, int rightPwm) {
+  setLeftDriveSpeed(leftPwm);
+  setRightDriveSpeed(rightPwm);
+}
+
+void printDriveStatus() {
+  Serial.print("STATUS,left_pwm=");
+  Serial.print(leftDriveSpeed);
+  Serial.print(",right_pwm=");
+  Serial.print(rightDriveSpeed);
+  Serial.print(",blower_pwm=");
+  Serial.print(blowerPwm);
+  Serial.print(",adhesion_secure=");
+  Serial.println(adhesionSecure ? 1 : 0);
+}
+
 void runDrive() {
   if (!adhesionSecure) {
     stopDrive();
@@ -143,8 +179,8 @@ void runDrive() {
     return;
   }
   driveRunning = true;
-  analogWrite(LEFT_DRIVE_PWM_PIN, driveSpeed);
-  analogWrite(RIGHT_DRIVE_PWM_PIN, driveSpeed);
+  analogWrite(LEFT_DRIVE_PWM_PIN, leftDriveSpeed);
+  analogWrite(RIGHT_DRIVE_PWM_PIN, rightDriveSpeed);
 }
 
 void driveForward() {
@@ -189,22 +225,81 @@ void turnRight() {
 
 void processDriveCommand(char command) {
   switch (command) {
-    case 'w': driveForward(); break;
-    case 's': driveBackward(); break;
-    case 'a': turnLeft(); break;
-    case 'd': turnRight(); break;
-    case 'x': stopDrive(); break;
+    case 'w': case 'W': driveForward(); break;
+    case 's': case 'S': driveBackward(); break;
+    case 'a': case 'A': turnLeft(); break;
+    case 'd': case 'D': turnRight(); break;
+    case 'x': case 'X': stopDrive(); break;
+    case '?': printDriveStatus(); break;
     case '1': case '2': case '3':
     case '4': case '5': case '6':
-    case '7': case '8': case '9':
-      driveSpeed = map(command - '0', 1, 9, 30, 255);
+    case '7': case '8': case '9': {
+      int pwm = map(command - '0', 1, 9, 30, 255);
+      setDriveSpeeds(pwm, pwm);
       if (driveRunning) runDrive();
+      printDriveStatus();
       break;
+    }
+  }
+}
+
+void processDriveCommandLine(char *commandLine) {
+  while (*commandLine == ' ' || *commandLine == '\t') commandLine++;
+  if (*commandLine == '\0') return;
+
+  char command = commandLine[0];
+  if ((command == 'L' || command == 'l') && commandLine[1] != '\0') {
+    setLeftDriveSpeed(atoi(commandLine + 1));
+    if (driveRunning) runDrive();
+    printDriveStatus();
+    return;
+  }
+  if ((command == 'R' || command == 'r') && commandLine[1] != '\0') {
+    setRightDriveSpeed(atoi(commandLine + 1));
+    if (driveRunning) runDrive();
+    printDriveStatus();
+    return;
+  }
+  if ((command == 'P' || command == 'p') && commandLine[1] != '\0') {
+    char *separator = strchr(commandLine + 1, ',');
+    if (separator != NULL) {
+      *separator = '\0';
+      setDriveSpeeds(atoi(commandLine + 1), atoi(separator + 1));
+      if (driveRunning) runDrive();
+      printDriveStatus();
+    } else {
+      Serial.println("ERROR,USE_P_LEFT_COMMA_RIGHT");
+    }
+    return;
+  }
+
+  processDriveCommand(command);
+}
+
+void processSerialInput() {
+  while (Serial.available()) {
+    char incoming = Serial.read();
+    if (incoming == '\n' || incoming == '\r') {
+      if (commandLength > 0) {
+        commandBuffer[commandLength] = '\0';
+        processDriveCommandLine(commandBuffer);
+        commandLength = 0;
+      }
+      continue;
+    }
+
+    if (commandLength < COMMAND_BUFFER_SIZE - 1) {
+      commandBuffer[commandLength++] = incoming;
+    } else {
+      commandLength = 0;
+      Serial.println("ERROR,COMMAND_TOO_LONG");
+    }
   }
 }
 
 void setup() {
   Serial.begin(SERIAL_BAUD);
+  Serial.setTimeout(20);
   Wire.begin();
   pinMode(LEFT_RELAY_1_PIN, OUTPUT);
   pinMode(LEFT_RELAY_2_PIN, OUTPUT);
@@ -271,8 +366,5 @@ void loop() {
   Serial.print(',');
   Serial.println(adhesionSecure ? 1 : 0);
 
-  if (Serial.available()) {
-    char command = Serial.read();
-    if (command != '\n' && command != '\r') processDriveCommand(command);
-  }
+  processSerialInput();
 }

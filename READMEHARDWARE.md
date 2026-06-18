@@ -60,6 +60,39 @@ PWM 범위
 | GND    | GND     |
 | OUT    | A0      |
 
+단독 확인 스케치는 `arduino/pressure_6847a_monitor/pressure_6847a_monitor.ino`에 있다.
+Arduino IDE에서 업로드한 뒤 시리얼 모니터를 `115200 baud`로 열면 기본 1초마다 아래 형식으로 출력된다.
+
+```text
+PRESSURE,<millis>,<raw>,<voltage_v>
+```
+
+더 빠르게 보고 싶으면 스케치의 `SAMPLE_INTERVAL_MS`를 줄이고, 변화가 있을 때만 보고 싶으면
+`PRINT_ONLY_IF_RAW_CHANGED_BY`를 예를 들어 `5`나 `10`으로 바꾼다.
+
+확인 순서:
+1. 센서를 대기압 상태로 두고 raw 값을 기록한다.
+2. 흡착 챔버에 연결하고 WS7040을 켠 상태의 raw 값을 기록한다.
+3. 손으로 로봇을 유리 쪽으로 더 눌렀을 때 raw 값이 어느 방향으로 변하는지 본다.
+
+이 세 값으로 `PRESSURE_INCREASES_WITH_SUCTION`, `ADHESION_TARGET_RAW`,
+`ADHESION_RELEASE_RAW`를 정한다.
+
+현재 실측 기준:
+
+```text
+WS7040 OFF:       raw ≈ 913
+WS7040 full load: raw ≈ 871
+```
+
+따라서 흡착이 강할수록 raw 값이 내려가는 방향이다. 통합 스케치 기준 provisional 값은:
+
+```cpp
+PRESSURE_INCREASES_WITH_SUCTION = false;
+ADHESION_TARGET_RAW = 885;   // 이 값 이하이면 흡착 확보
+ADHESION_RELEASE_RAW = 900;  // 이 값 초과이면 흡착 손실
+```
+
 ---
 
 ## GY-85
@@ -218,31 +251,32 @@ B-C
 
 # 시리얼 명령
 
-| 키   | 기능    |
-| --- | ----- |
-| w   | 전진    |
-| s   | 후진    |
-| a   | 좌회전   |
-| d   | 우회전   |
-| x   | 정지    |
-| 1~9 | 속도 설정 |
-| p   | 센서 출력 |
+Arduino IDE 시리얼 모니터에서 보드레이트는 `115200`, 줄 끝은 `Newline` 또는
+`Both NL & CR`로 둔다. 기본 직진 보정 PWM은 왼쪽 `150`, 오른쪽 `235`이다.
 
----
+| 입력 | 기능 |
+| --- | --- |
+| `L150` | 왼쪽 궤도 PWM을 150으로 설정 |
+| `R235` | 오른쪽 궤도 PWM을 235로 설정 |
+| `P150,235` | 왼쪽/오른쪽 PWM을 동시에 설정 |
+| `w` | 전진 |
+| `s` | 후진 |
+| `a` | 좌회전 |
+| `d` | 우회전 |
+| `x` | 정지 |
+| `?` | 현재 `left_pwm`, `right_pwm`, `blower_pwm`, `adhesion_secure` 출력 |
 
-# 속도 설정
+압력/흡착 상태는 20 Hz로 아래 형식으로 계속 출력된다.
 
 ```text
-1 = 매우 느림
-5 = 중간
-9 = 최대
+SENSOR,<millis>,<pressure_raw>,<gyro_valid>,<x_dps>,<y_dps>,<z_dps>,<blower_pwm>,<adhesion_secure>
 ```
 
-PWM 변환
+흡착이 확보되지 않으면 주행 명령은 `DRIVE_BLOCKED,ADHESION_NOT_SECURE`로 차단된다.
 
-```cpp
-speedValue = map(cmd - '0', 1, 9, 30, 255);
-```
+
+`1`~`9`는 기존 호환용 단축 속도 명령이다. 이 명령은 좌우 PWM을 같은 값으로
+바꾸므로, 직진 보정 실험 중에는 `P150,235`처럼 좌우 분리 명령을 우선 사용한다.
 
 ---
 

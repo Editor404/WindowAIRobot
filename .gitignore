@@ -17,3 +17,14 @@ detected_window.jpg
 .idea/
 .vscode/
 *~
+
+# ROS/colcon local build outputs
+install/
+log/
+ros_logs/
+
+# Local OMX wiki/session capture
+omx_wiki/
+
+# Duplicate local mesh export; packaged mesh lives in meshes/
+/jagosipda.stl

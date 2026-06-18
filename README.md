@@ -142,8 +142,8 @@ camera_calibration_width/height         640 / 480
 ```bash
 python3 CornerDetection.py \
   --image sample_window.jpg \
-  --window-width-cm 120 \
-  --window-height-cm 80 \
+  --window-width-cm 80 \
+  --window-height-cm 160 \
   --map-bottom-left-x-cm 0 \
   --map-bottom-left-y-cm 0 \
   --camera-map-x-cm 15 \
@@ -221,8 +221,8 @@ ADHESION_RELEASE_RAW 미만 → 흡착 손실
 ```bash
 ros2 run window_cleaner calibrate_window \
   --image sample_window.jpg \
-  --window-width-cm 120 \
-  --window-height-cm 80 \
+  --window-width-cm 80 \
+  --window-height-cm 160 \
   --output config/window_calibration.yaml \
   --annotated-output detected_window.jpg
 ```
@@ -240,8 +240,8 @@ ros2 run window_cleaner dirt_target_node \
   --ros-args \
   -p auto_detect_window_corners:=true \
   -p auto_save_window_calibration:=true \
-  -p window_width_cm:=120.0 \
-  -p window_height_cm:=80.0
+  -p window_width_cm:=80.0 \
+  -p window_height_cm:=160.0
 ```
 
 Keep `auto_detect_window_corners:=false` when you want to use a hand-measured calibration file exactly as-is.
@@ -272,3 +272,97 @@ ros2 launch window_cleaner dirt_target.launch.py
 오염 절대 x = 로봇 현재 x + 카메라 x 오프셋 + (오염 중심 px - 화면 중심 px) * x축 cm/px
 오염 절대 y = 로봇 현재 y + 카메라 y 오프셋 + (화면 중심 py - 오염 중심 py) * y축 cm/px
 ```
+
+## Gazebo Classic 시뮬레이션
+
+이 패키지는 실제 하드웨어 없이 Gazebo Classic에서 최소 통합 테스트를 할 수 있는
+데모 world와 시뮬레이션 브리지를 포함합니다.
+
+구성:
+
+```text
+worlds/window_cleaner_demo.world  실측 유리 80×160cm + 5cm 폭·+X 20cm 돌출 창틀/장착 카메라/로봇 모델 world
+urdf/window_cleaner_robot.urdf    jagosipda.stl 기반 30×30cm 로봇 visual 모델
+meshes/jagosipda.stl              Gazebo에서 표시할 로봇 STL mesh
+launch/gazebo_sim.launch.py       Gazebo world + 비전 노드 + 컨트롤러 + sim bridge 실행
+sim_bridge_node                   /arduino/motor_command를 받아 가상 pose/흡착 토픽 발행
+```
+
+월드 구성:
+
+- `traction_test_floor`: 팬/흡착 없이 주행 마찰을 먼저 확인하는 수평 바닥
+- `window_wall`: 유리 좌하단 (0,0,0), 유리 80×160cm, 유리 주변 5cm 창틀, +X 방향 20cm 돌출
+- `white_dirt_dot_*`: 유리 -X쪽 표면의 랜덤 위치 하얀색 오염 점
+- `robot_start_marker`: Gazebo pose 기준점을 보여주는 시작 위치 마커
+- `robot_camera`: 로봇에 장착되어 `/robot_camera/image_raw`, `/robot_camera/camera_info`를 발행하는 Gazebo ROS 카메라
+- `window_cleaner_robot`: world에 직접 포함된 `jagosipda.stl` visual mesh 로봇
+
+ROS2 Humble 기준 설치:
+
+```bash
+sudo apt install ros-humble-gazebo-ros-pkgs python3-colcon-common-extensions
+```
+
+빌드:
+
+```bash
+mkdir -p ~/capstone_ws/src
+ln -s /home/keivn/capstone ~/capstone_ws/src/window_cleaner
+cd ~/capstone_ws
+source /opt/ros/humble/setup.bash
+python3 -m pip install -r src/window_cleaner/requirements.txt
+colcon build --packages-select window_cleaner
+source install/setup.bash
+```
+
+실행:
+
+```bash
+# 여러 터미널/rqt에서 토픽을 볼 경우 모든 터미널의 ROS_LOCALHOST_ONLY 값을 동일하게 맞춥니다.
+# 기본값을 쓸 때는 unset 상태로 둡니다. localhost-only로 쓸 때는 실행/확인 터미널 모두 export 하세요.
+# export ROS_LOCALHOST_ONLY=1
+ros2 launch window_cleaner gazebo_sim.launch.py
+```
+
+확인:
+
+```bash
+# ROS_LOCALHOST_ONLY=1로 실행했다면 이 확인 터미널에도 같은 값을 export 해야 합니다.
+ros2 daemon stop
+ros2 node list --no-daemon
+ros2 topic list -v --no-daemon
+ros2 topic hz /robot_camera/image_raw
+ros2 topic echo /robot/target_pose
+ros2 topic echo /arduino/motor_command
+ros2 topic echo /robot_pose
+```
+
+Gazebo 런치는 YOLO 대신 시뮬레이션용 흰색/회색 오염점 검출기(`detector_mode:=sim`)를 사용합니다. 현재 제어 구조는 `/robot_camera/image_raw` → `/dirt/detections_px` → `window_cleaning_planner_node` → `/robot/target_pose` → `/arduino/motor_command` → Gazebo 모델 이동 순서입니다. 플래너는 80×160cm 직사각형 유리 맵에서 lawn-mower 스캔 waypoint를 돌면서 보이는 오염점을 `/dirt/memory_count`에 누적하고, 스캔 후 가까운 오염점부터 청소 target으로 발행합니다. 컨트롤러/브리지만 따로 확인하려면 아래처럼 목표 좌표를 수동 발행할 수 있습니다.
+
+```bash
+ros2 topic pub --once /robot/target_pose geometry_msgs/msg/Pose2D \
+"{x: 30.0, y: 45.0, theta: 1.0}"
+```
+
+현재 Gazebo 구성은 `jagosipda.stl` 로봇 외형을 Gazebo에 spawn하지만, 아직 트랙 구동/흡착
+force 플러그인까지 물리 구현한 단계는 아닙니다. 실제 제어 파이프라인은 `sim_bridge_node`가
+`/arduino/motor_command`를 단순 pose 변화로 적분해서 검증합니다.
+
+Gazebo 창틀은 유리 주변 5 cm 폭에 +X 방향 20 cm 돌출로 설정했습니다. 로봇은 창문
+수직 유리면의 +X쪽 반대편에 바닥면이 닿도록 배치됩니다. heading이 바뀌어도 로봇 local -Z underside가 world -X 유리 방향을 유지하도록 자세를 계산하며, 로봇 top-view 좌하단이 유리 좌하단 원점 `(0,0,0)`에 오도록 초기 중심은 `(15,15) cm`이고 heading 0은 유리 위쪽(world +Z)을 향합니다.
+유리 두께 2 cm의 +X쪽 표면은 `X=+1 cm`이고, `jagosipda.stl`의 실제 visual 바닥면
+기준으로 로봇 중심을 `X=+7.8886 cm`에 고정해서 로봇 바닥면이 창틀이 아니라 중앙
+유리 표면에 닿도록 유지합니다. Gazebo collision이 창틀/유리와 충돌해 밀어내지 않도록
+로봇 physics collision은 제거하고, underside visual pad로 접촉면을 표시합니다.
+`sim_bridge_node` 이동도 창문 좌하단 기준
+`(x_cm, y_cm) -> Gazebo world (Y, Z)`로 반영합니다.
+
+로봇 장착 카메라는 30 x 30 cm 로봇 top-view의 좌하단을 `(0, 0)`으로 봤을 때
+`(15, 30) cm` 위치에 있으며, 로봇 바닥면 기준 높이는 `13 cm`입니다. 카메라는 X축 기준 회전 roll을 `0도`로 고정하고, `(15,30) cm` 위치에서 유리 상단 좌/우 코너 `(0,160)`, `(80,160)`이 모두 들어오도록 두 코너의 각도 중간 방향에 맞췄습니다. 현재 로컬 yaw는 약 `-10.0도`, pitch는 약 `5.6도`입니다. 실제 카메라 스펙에 맞춰 horizontal AOV는 `54도`, 640×480 기준 vertical AOV는 약 `42도`, update rate는 `30fps`로 설정했습니다. 이 카메라가 `/robot_camera/image_raw`와 `/robot_camera/camera_info`를 발행합니다.
+고정 관찰용 월드 카메라는 토픽 충돌을 피하기 위해 `/world_camera/image_raw`를 발행합니다.
+
+Gazebo 흰점 삭제:
+
+- 오염점은 `sim_dirt_dot_XX` 개별 모델로 생성됩니다.
+- `gazebo_dirt_cleaner_node`가 `/robot_pose`를 보고 로봇 30×30cm footprint 안에 들어온 오염 모델을 Gazebo delete service로 삭제합니다.
+- 남은 시뮬레이션 오염점 수는 `/dirt/sim_remaining_count`, 삭제된 오염점 이름은 `/dirt/sim_cleaned`에서 확인합니다.

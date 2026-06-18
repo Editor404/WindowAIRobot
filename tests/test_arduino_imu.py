@@ -44,7 +44,14 @@ def test_apply_gyro_bias():
 
 
 def test_transform_map_motion_using_robot_yaw():
+    forward_cm, lateral_cm = map_delta_to_robot(0.0, 10.0, 0.0)
+
+    assert forward_cm == pytest.approx(10.0)
+    assert lateral_cm == pytest.approx(0.0, abs=1e-9)
+
+
+def test_transform_side_motion_after_positive_quarter_turn():
     forward_cm, lateral_cm = map_delta_to_robot(10.0, 0.0, math.pi / 2.0)
 
-    assert forward_cm == pytest.approx(0.0, abs=1e-9)
-    assert lateral_cm == pytest.approx(-10.0)
+    assert forward_cm == pytest.approx(10.0)
+    assert lateral_cm == pytest.approx(0.0, abs=1e-9)

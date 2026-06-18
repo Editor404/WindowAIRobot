@@ -45,11 +45,13 @@ def map_delta_to_robot(
     delta_y_cm: float,
     robot_yaw_radians: float,
 ) -> tuple[float, float]:
-    cosine = math.cos(robot_yaw_radians)
+    # User/map heading convention: yaw=0 means robot forward is map +Y
+    # (Gazebo/world +Z), and positive yaw turns toward map +X (world +Y).
     sine = math.sin(robot_yaw_radians)
+    cosine = math.cos(robot_yaw_radians)
     return (
-        cosine * delta_x_cm + sine * delta_y_cm,
-        -sine * delta_x_cm + cosine * delta_y_cm,
+        sine * delta_x_cm + cosine * delta_y_cm,
+        cosine * delta_x_cm - sine * delta_y_cm,
     )
 
 

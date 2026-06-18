@@ -1,0 +1,713 @@
+<?xml version="1.0"?>
+<sdf version="1.6">
+  <world name="window_cleaner_demo">
+    <physics name="default_physics" type="ode">
+      <max_step_size>0.001</max_step_size>
+      <real_time_update_rate>1000</real_time_update_rate>
+      <real_time_factor>1.0</real_time_factor>
+    </physics>
+
+    <scene>
+      <ambient>0.35 0.35 0.35 1</ambient>
+      <background>0.78 0.86 0.95 1</background>
+      <shadows>true</shadows>
+    </scene>
+
+    <include>
+      <uri>model://sun</uri>
+    </include>
+
+
+    <plugin name="gazebo_ros_state" filename="libgazebo_ros_state.so">
+      <ros>
+        <namespace>/gazebo</namespace>
+      </ros>
+      <update_rate>30.0</update_rate>
+    </plugin>
+
+    <!-- Horizontal floor for ordinary traction tests before wall adhesion tests. -->
+    <model name="traction_test_floor">
+      <static>true</static>
+      <pose>0.35 0 0 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <box>
+              <size>3.0 2.0 0.04</size>
+            </box>
+          </geometry>
+          <surface>
+            <friction>
+              <ode>
+                <mu>1.1</mu>
+                <mu2>1.1</mu2>
+              </ode>
+            </friction>
+          </surface>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <box>
+              <size>3.0 2.0 0.04</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.55 0.55 0.55 1</ambient>
+            <diffuse>0.62 0.62 0.62 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Vertical window: glass lower-left corner is world (0, 0, 0); glass spans Y=0..0.8 m and Z=0..1.6 m. The frame border thickness is 5 cm and protrudes 20 cm toward +X. -->
+    <model name="window_wall">
+      <static>true</static>
+      <pose>0 0.4 0.8 0 0 0</pose>
+      <link name="link">
+        <collision name="glass_collision">
+          <geometry>
+            <box>
+              <size>0.02 0.8 1.6</size>
+            </box>
+          </geometry>
+          <surface>
+            <friction>
+              <ode>
+                <mu>0.9</mu>
+                <mu2>0.9</mu2>
+              </ode>
+            </friction>
+          </surface>
+        </collision>
+        <visual name="glass">
+          <geometry>
+            <box>
+              <size>0.02 0.8 1.6</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.62 0.86 1.0 0.55</ambient>
+            <diffuse>0.62 0.86 1.0 0.55</diffuse>
+            <specular>0.7 0.9 1.0 1</specular>
+          </material>
+        </visual>
+
+        <collision name="frame_top_collision">
+          <pose>0.10 0 0.825 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>0.20 0.90 0.05</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="frame_top">
+          <pose>0.10 0 0.825 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>0.20 0.90 0.05</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.08 0.08 0.08 1</ambient>
+            <diffuse>0.08 0.08 0.08 1</diffuse>
+          </material>
+        </visual>
+
+        <collision name="frame_bottom_collision">
+          <pose>0.10 0 -0.825 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>0.20 0.90 0.05</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="frame_bottom">
+          <pose>0.10 0 -0.825 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>0.20 0.90 0.05</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.08 0.08 0.08 1</ambient>
+            <diffuse>0.08 0.08 0.08 1</diffuse>
+          </material>
+        </visual>
+
+        <collision name="frame_left_collision">
+          <pose>0.10 -0.425 0 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>0.20 0.05 1.70</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="frame_left">
+          <pose>0.10 -0.425 0 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>0.20 0.05 1.70</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.08 0.08 0.08 1</ambient>
+            <diffuse>0.08 0.08 0.08 1</diffuse>
+          </material>
+        </visual>
+
+        <collision name="frame_right_collision">
+          <pose>0.10 0.425 0 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>0.20 0.05 1.70</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="frame_right">
+          <pose>0.10 0.425 0 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>0.20 0.05 1.70</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.08 0.08 0.08 1</ambient>
+            <diffuse>0.08 0.08 0.08 1</diffuse>
+          </material>
+        </visual>
+
+        <!-- Random dirt dots are standalone models below so they can be deleted when cleaned. -->
+
+      </link>
+    </model>
+
+    <model name="sim_dirt_dot_00">
+      <static>true</static>
+      <pose>-0.0140 0.1071 1.3114 0.000000 1.570796 0.000000</pose>
+      <link name="link">
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.0120</radius>
+              <length>0.004</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>1.0 1.0 1.0 1</ambient>
+            <diffuse>1.0 1.0 1.0 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="sim_dirt_dot_01">
+      <static>true</static>
+      <pose>-0.0140 0.2067 0.2276 0.000000 1.570796 0.000000</pose>
+      <link name="link">
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.0202</radius>
+              <length>0.004</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>1.0 1.0 1.0 1</ambient>
+            <diffuse>1.0 1.0 1.0 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="sim_dirt_dot_02">
+      <static>true</static>
+      <pose>-0.0140 0.4891 0.5689 0.000000 1.570796 0.000000</pose>
+      <link name="link">
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.0199</radius>
+              <length>0.004</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>1.0 1.0 1.0 1</ambient>
+            <diffuse>1.0 1.0 1.0 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="sim_dirt_dot_03">
+      <static>true</static>
+      <pose>-0.0140 0.1642 1.4077 0.000000 1.570796 0.000000</pose>
+      <link name="link">
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.0105</radius>
+              <length>0.004</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>1.0 1.0 1.0 1</ambient>
+            <diffuse>1.0 1.0 1.0 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="sim_dirt_dot_04">
+      <static>true</static>
+      <pose>-0.0140 0.2305 0.4185 0.000000 1.570796 0.000000</pose>
+      <link name="link">
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.0164</radius>
+              <length>0.004</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>1.0 1.0 1.0 1</ambient>
+            <diffuse>1.0 1.0 1.0 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="sim_dirt_dot_05">
+      <static>true</static>
+      <pose>-0.0140 0.1334 1.4220 0.000000 1.570796 0.000000</pose>
+      <link name="link">
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.0108</radius>
+              <length>0.004</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>1.0 1.0 1.0 1</ambient>
+            <diffuse>1.0 1.0 1.0 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="sim_dirt_dot_06">
+      <static>true</static>
+      <pose>-0.0140 0.0888 0.6252 0.000000 1.570796 0.000000</pose>
+      <link name="link">
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.0198</radius>
+              <length>0.004</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>1.0 1.0 1.0 1</ambient>
+            <diffuse>1.0 1.0 1.0 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="sim_dirt_dot_07">
+      <static>true</static>
+      <pose>-0.0140 0.4486 1.4885 0.000000 1.570796 0.000000</pose>
+      <link name="link">
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.0168</radius>
+              <length>0.004</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>1.0 1.0 1.0 1</ambient>
+            <diffuse>1.0 1.0 1.0 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="sim_dirt_dot_08">
+      <static>true</static>
+      <pose>-0.0140 0.7276 0.3784 0.000000 1.570796 0.000000</pose>
+      <link name="link">
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.0184</radius>
+              <length>0.004</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>1.0 1.0 1.0 1</ambient>
+            <diffuse>1.0 1.0 1.0 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="sim_dirt_dot_09">
+      <static>true</static>
+      <pose>-0.0140 0.2430 0.1692 0.000000 1.570796 0.000000</pose>
+      <link name="link">
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.0212</radius>
+              <length>0.004</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>1.0 1.0 1.0 1</ambient>
+            <diffuse>1.0 1.0 1.0 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="sim_dirt_dot_10">
+      <static>true</static>
+      <pose>-0.0140 0.5172 0.1469 0.000000 1.570796 0.000000</pose>
+      <link name="link">
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.0197</radius>
+              <length>0.004</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>1.0 1.0 1.0 1</ambient>
+            <diffuse>1.0 1.0 1.0 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="sim_dirt_dot_11">
+      <static>true</static>
+      <pose>-0.0140 0.1939 0.7353 0.000000 1.570796 0.000000</pose>
+      <link name="link">
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.0167</radius>
+              <length>0.004</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>1.0 1.0 1.0 1</ambient>
+            <diffuse>1.0 1.0 1.0 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="sim_dirt_dot_12">
+      <static>true</static>
+      <pose>-0.0140 0.6343 0.5131 0.000000 1.570796 0.000000</pose>
+      <link name="link">
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.0147</radius>
+              <length>0.004</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>1.0 1.0 1.0 1</ambient>
+            <diffuse>1.0 1.0 1.0 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="sim_dirt_dot_13">
+      <static>true</static>
+      <pose>-0.0140 0.5810 1.3009 0.000000 1.570796 0.000000</pose>
+      <link name="link">
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.0148</radius>
+              <length>0.004</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>1.0 1.0 1.0 1</ambient>
+            <diffuse>1.0 1.0 1.0 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="sim_dirt_dot_14">
+      <static>true</static>
+      <pose>-0.0140 0.6235 0.9865 0.000000 1.570796 0.000000</pose>
+      <link name="link">
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.0108</radius>
+              <length>0.004</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>1.0 1.0 1.0 1</ambient>
+            <diffuse>1.0 1.0 1.0 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="sim_dirt_dot_15">
+      <static>true</static>
+      <pose>-0.0140 0.3652 0.3210 0.000000 1.570796 0.000000</pose>
+      <link name="link">
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.0121</radius>
+              <length>0.004</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>1.0 1.0 1.0 1</ambient>
+            <diffuse>1.0 1.0 1.0 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="sim_dirt_dot_16">
+      <static>true</static>
+      <pose>-0.0140 0.0686 1.0280 0.000000 1.570796 0.000000</pose>
+      <link name="link">
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.0197</radius>
+              <length>0.004</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>1.0 1.0 1.0 1</ambient>
+            <diffuse>1.0 1.0 1.0 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="sim_dirt_dot_17">
+      <static>true</static>
+      <pose>-0.0140 0.2602 1.2099 0.000000 1.570796 0.000000</pose>
+      <link name="link">
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.0142</radius>
+              <length>0.004</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>1.0 1.0 1.0 1</ambient>
+            <diffuse>1.0 1.0 1.0 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Visible robot model loaded directly at world startup.
+         The visual uses the uploaded jagosipda.stl mesh. Robot physics collision is disabled here so the STL visual underside can be kept exactly on the glass instead of being pushed onto the protruding frame.
+         The model is on the +X side of the glass. In top view, the robot lower-left corner is aligned with the glass lower-left origin (0,0,0), while local -Z underside faces world -X so the bottom face stays on the glass. Heading 0 points upward along world +Z; the startup pose is an in-plane 90 deg rotation (theta=+pi/2) with the underside still attached to the glass, while the camera remains at map (15,30) cm.
+         sim_bridge_node moves this model through Gazebo /set_entity_state. -->
+    <model name="window_cleaner_robot">
+      <static>false</static>
+      <pose>0.078886 0.15 0.15 1.570796 0.000000 1.570796</pose>
+      <link name="base_link">
+        <!-- Adhesion robot is constrained to the vertical glass in this simulator. -->
+        <gravity>false</gravity>
+        <inertial>
+          <mass>2.0</mass>
+          <inertia>
+            <ixx>0.025</ixx>
+            <ixy>0.0</ixy>
+            <ixz>0.0</ixz>
+            <iyy>0.025</iyy>
+            <iyz>0.0</iyz>
+            <izz>0.035</izz>
+          </inertia>
+        </inertial>
+        <!-- Thin underside visual pad: local z=-6.8886 cm matches the STL visual bottom.
+             The model center X is chosen so this visual underside lies on the
+             +X glass surface at X=+1 cm, not on the protruding frame. -->
+        <visual name="underside_contact_visual">
+          <pose>0 0 -0.068886 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>0.26 0.26 0.002</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.0 0.45 0.12 0.65</ambient>
+            <diffuse>0.0 0.45 0.12 0.65</diffuse>
+          </material>
+        </visual>
+        <visual name="body_visual">
+          <pose>-0.003512 -0.002591 -0.061886 0 0 0</pose>
+          <geometry>
+            <mesh>
+              <uri>model://window_cleaner/meshes/jagosipda.stl</uri>
+              <scale>0.001 0.001 0.001</scale>
+            </mesh>
+          </geometry>
+          <material>
+            <ambient>0.55 0.58 0.62 1</ambient>
+            <diffuse>0.55 0.58 0.62 1</diffuse>
+          </material>
+        </visual>
+
+        <!-- Robot-mounted camera.
+             Robot top-view footprint is treated as 30 x 30 cm.
+             Initial robot center remains (15,15) cm, and the drive heading is
+             an in-plane 90 deg rotation (theta=+pi/2) with the underside kept
+             on the glass. The camera is placed at map (15,30) cm for the
+             calibration condition; with this body heading that maps to local
+             (x=0, y=+15 cm). ROS projection uses camera_offset_x_cm=0 and
+             camera_offset_y_cm=15. Local z=+6 cm puts the camera about 13 cm
+             above the underside plane. The camera optical +X axis is rotated
+             exactly onto the robot's local +Y axis so, at the restored startup
+             heading, it looks toward the glass top while staying at map
+             (15,30) cm. -->
+        <visual name="camera_body_visual">
+          <pose>0 0.15 0.061114 0.000000 0.098300 1.570796</pose>
+          <geometry>
+            <box>
+              <size>0.05 0.035 0.035</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.02 0.02 0.02 1</ambient>
+            <diffuse>0.02 0.02 0.02 1</diffuse>
+          </material>
+        </visual>
+        <visual name="camera_lens_visual">
+          <pose>0 0.178 0.061114 0.000000 0.098300 1.570796</pose>
+          <geometry>
+            <cylinder>
+              <radius>0.012</radius>
+              <length>0.012</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.01 0.01 0.08 1</ambient>
+            <diffuse>0.01 0.01 0.08 1</diffuse>
+          </material>
+        </visual>
+        <sensor name="robot_camera" type="camera">
+          <pose>0 0.15 0.061114 0.000000 0.098300 1.570796</pose>
+          <always_on>true</always_on>
+          <update_rate>30</update_rate>
+          <camera>
+            <!-- Real camera AOV: 54 x 41 deg. With 640x480, horizontal_fov=54 deg gives vertical_fov≈42 deg. -->
+            <horizontal_fov>0.942478</horizontal_fov>
+            <image>
+              <width>640</width>
+              <height>480</height>
+              <format>R8G8B8</format>
+            </image>
+            <clip>
+              <near>0.03</near>
+              <far>10</far>
+            </clip>
+          </camera>
+          <plugin name="robot_camera_controller" filename="libgazebo_ros_camera.so">
+            <ros>
+              <namespace>/</namespace>
+              <remapping>image_raw:=/robot_camera/image_raw</remapping>
+              <remapping>camera_info:=/robot_camera/camera_info</remapping>
+            </ros>
+            <camera_name>robot_camera</camera_name>
+            <frame_name>robot_camera_link</frame_name>
+          </plugin>
+        </sensor>
+      </link>
+    </model>
+
+    <!-- Non-physical 30 x 30 cm marker showing a reasonable initial robot location on the glass. -->
+    <model name="robot_start_marker">
+      <static>true</static>
+      <pose>-0.035 0.15 0.15 0 0 1.570796</pose>
+      <link name="link">
+        <visual name="body_outline">
+          <geometry>
+            <box>
+              <size>0.012 0.30 0.30</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.1 0.7 0.2 0.45</ambient>
+            <diffuse>0.1 0.7 0.2 0.45</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Fixed observer camera for debugging, publishing /world_camera/image_raw. -->
+    <model name="sim_camera">
+      <static>true</static>
+      <pose>-2.4 0.4 0.8 0 0 0</pose>
+      <link name="camera_link">
+        <sensor name="camera" type="camera">
+          <always_on>true</always_on>
+          <update_rate>10</update_rate>
+          <camera>
+            <horizontal_fov>1.047</horizontal_fov>
+            <image>
+              <width>640</width>
+              <height>480</height>
+              <format>R8G8B8</format>
+            </image>
+            <clip>
+              <near>0.05</near>
+              <far>10</far>
+            </clip>
+          </camera>
+          <plugin name="camera_controller" filename="libgazebo_ros_camera.so">
+            <ros>
+              <namespace>/</namespace>
+              <remapping>image_raw:=/world_camera/image_raw</remapping>
+              <remapping>camera_info:=/world_camera/camera_info</remapping>
+            </ros>
+            <camera_name>world_camera</camera_name>
+            <frame_name>camera_link</frame_name>
+          </plugin>
+        </sensor>
+      </link>
+    </model>
+  </world>
+</sdf>
