@@ -19,7 +19,7 @@ def generate_launch_description():
                 output="screen",
                 parameters=[
                     {
-                        "backend": "picamera2",
+                        "backend": "auto",
                         "image_topic": "/camera/image_raw",
                         "width": 640,
                         "height": 480,
